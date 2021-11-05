@@ -1,54 +1,27 @@
 package ru.mipt;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.PriorityQueue;
-import static ru.mipt.Calculator.calculate;
+import java.util.LinkedHashMap;
 
-public class SingleThreadCache implements Cache{
-    private final int size;
-    private final PriorityQueue<Entry> queue;
-    private final Map<Key, Value> map;
+public class SingleThreadCache<K, V> extends LinkedHashMap<K, V> {
 
-    public SingleThreadCache(int size) {
-        this.size = size;
-        this.queue = new PriorityQueue<Entry>();
-        this.map = new HashMap<Key, Value>();
+    private final int capacity;
+
+    @Override
+    protected boolean removeEldestEntry(java.util.Map.Entry<K, V> eldest) {
+
+        return (size() > this.capacity);
     }
 
-    public Value calculateWithCache(Key key) {
-        long currTime = System.nanoTime();
-
-        if (map.containsKey(key)) {
-            return getResultFromCache(currTime, key);
-        }
-
-        Value result = calculate(key);
-        optionallyDeleteOldKeysAndValues();
-        addNewKeyAndValue(key, result, currTime);
-
-        return result;
+    public SingleThreadCache(int capacity) {
+        super(capacity + 1, 1.0f, true);
+        this.capacity = capacity;
     }
 
-    private void optionallyDeleteOldKeysAndValues() {
-        if (map.size() == size) {
-            Key minKey = queue.poll().getKey();
-            map.remove(minKey);
-        }
+    public V find(K key) {
+        return super.get(key);
     }
 
-    private void addNewKeyAndValue(Key key, Value value, long time) {
-        map.put(key, value);
-        queue.add(new Entry(time, key));
-    }
-
-    private Value getResultFromCache(long time, Key key) {
-        queue.add(new Entry(time, key));
-        return map.get(key);
-    }
-
-    public Collection<Key> getKeys() {
-        return map.keySet();
+    public void set(K key, V value) {
+        super.put(key, value);
     }
 }

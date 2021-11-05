@@ -1,74 +1,67 @@
 package ru.mipt;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
+import org.junit.Test;
+import ru.mipt.ThreadSafeCache;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class ThreadSafeCacheTest {
+public class ThreadSafeCacheTest {
+    private final int capacity = 5000;
 
-    @Test
-    public void mustReturnCorrectResultsFromCache() {
-        int size = 1;
-        Cache cache = new ThreadSafeCache(size);
-        Key key = new Key();
+    private void insertValues(ThreadSafeCache<Integer, Integer> cache, int start) {
+        Runnable r = () -> {
+            for(int i = 0; i < capacity; i ++) {
+                cache.set(start + i, start + i);
+            }
+        };
 
-        Value calculatedValue = cache.calculateWithCache(key);
-        Value valueFromCache = cache.calculateWithCache(key);
-
-        assertEquals(calculatedValue, valueFromCache);
-    }
-
-    private List<Key> generateKeys(int n) {
-        List<Key> keys = new ArrayList<Key>();
-        for (int i = 0; i < n; i++) {
-            keys.add(new Key());
-        }
-        return keys;
-    }
-
-    private void makeRequests(Cache cache, List<Key> keys) {
-
-        Thread t1 = new Thread(new Task(new ArrayList<>(keys), cache));
-
-        Thread t2 = new Thread(new Task(new ArrayList<>(keys), cache));
+        Thread t1 = new Thread(r);
+        Thread t2 = new Thread(r);
+        Thread t3 = new Thread(r);
+        Thread t4 = new Thread(r);
 
         t1.start();
         t2.start();
+        t3.start();
+        t4.start();
 
         try {
             t1.join();
             t2.join();
-            Thread.sleep(10);
+            t3.join();
+            t4.join();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+
     }
 
     @Test
-    public void mustStoreOnlyLastUsedKeys() {
-        int times = 50;
-        for(int i = 0; i < times; i++) {
-            checkKeys();
+    public void mustStoreValuesCorrectly() {
+        int numOfChecks = 100;
+        for (int i = 0; i < numOfChecks; i++) {
+            insertAndCheckValues();
         }
     }
 
-    private void checkKeys() {
-        int n = 100;
-        List<Key> keys = generateKeys(3 * n);
+    private void insertAndCheckValues() {
+        ThreadSafeCache<Integer, Integer> cache = new ThreadSafeCache<>(capacity);
+        insertValues(cache);
+        checkValues(cache);
+    }
 
-        ThreadSafeCache cache = new ThreadSafeCache(2 * n);
+    private void checkValues(ThreadSafeCache<Integer, Integer> cache) {
+        for (int i = 0; i < capacity; i++) {
+            assertNull(cache.find(i));
+        }
 
-        List<Key> initialKeys = keys.subList(0, 2 * n);
-        makeRequests(cache, initialKeys);
-        assertTrue(cache.getKeys().containsAll(initialKeys));
-        assertEquals(initialKeys.size(), cache.getKeys().size());
+        for (int i = capacity; i < 2 * capacity; i++) {
+            assertEquals(i, cache.find(i));
+        }
+    }
 
-        List<Key> recentUsedKeys = keys.subList(2 * n, 3 * n);
-        makeRequests(cache, recentUsedKeys);
-
-        assertTrue(cache.getKeys().containsAll(recentUsedKeys));
+    private void insertValues(ThreadSafeCache<Integer, Integer> cache) {
+        insertValues(cache, 0);
+        insertValues(cache, capacity);
     }
 }

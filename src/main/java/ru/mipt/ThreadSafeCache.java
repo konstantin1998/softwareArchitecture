@@ -1,58 +1,28 @@
 package ru.mipt;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.LinkedHashMap;
 
-public class ThreadSafeCache implements Cache{
-    private final int size;
-    private final  TimeQueue timeQueue;
-    private final Map<Key, Value> map;
-    private long timestamp = 0;
+public class ThreadSafeCache<K, V> extends LinkedHashMap<K, V> {
 
-    public ThreadSafeCache(int size) {
-        this.size = size;
-        timeQueue = new TimeQueue();
-        map = new ConcurrentHashMap<>();
+    private final int capacity;
+
+    @Override
+    protected boolean removeEldestEntry(java.util.Map.Entry<K, V> eldest) {
+
+        return (size() > this.capacity);
     }
 
-    public Value calculateWithCache(Key key) {
-        long currTime = getTimeStamp();
-
-        if (map.containsKey(key)) {
-            return getResultFromCache(currTime, key);
-        }
-
-        Value result = Calculator.calculate(key);
-        optionallyDeleteOldKeysAndValues();
-        addNewKeyAndValue(key, result, currTime);
-
-        return result;
+    public ThreadSafeCache(int capacity) {
+        super(capacity + 1, 1.0f, true);
+        this.capacity = capacity;
     }
 
-    private synchronized void optionallyDeleteOldKeysAndValues() {
-        while (map.size() > size) {
-            Key minKey = timeQueue.extractOldestKey();
-            map.remove(minKey);
-        }
+    public synchronized V find(K key) {
+        return super.get(key);
     }
 
-    private synchronized void addNewKeyAndValue(Key key, Value value, long time) {
-        map.put(key, value);
-        timeQueue.set(key, time);
+    public synchronized void set(K key, V value) {
+        super.put(key, value);
     }
 
-    private synchronized Value getResultFromCache(long time, Key key) {
-        timeQueue.updateTime(key, time);
-        return map.get(key);
-    }
-
-    public Collection<Key> getKeys() {
-        return map.keySet();
-    }
-
-    private long getTimeStamp() {
-        timestamp++;
-        return timestamp;
-    }
 }
